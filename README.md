@@ -2,7 +2,7 @@
 CLI which scrapes recipe pages into markdown (dropping all the nonessential info)
 
 # usage
-Requires nodejs and puppeteer installed. To use, simply invoke the recipe script on the URL of a recipe website, like
+Requires pup and jq. To use, simply invoke the recipe script on the URL of a recipe website, like
 
 > ./recipe www.example.com
 
