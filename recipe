@@ -1,7 +1,8 @@
 #!/bin/bash
 recipeDirect='(select(.["@type"]=="Recipe"))'
 recipeGraph='(select(has("@graph"))|.["@graph"]|map(select(.["@type"]=="Recipe"))|.[])'
-recipes="(.[]|(arrays|.[]),objects|$recipeGraph,$recipeDirect)"
+recipeItemList='(select(.["@type"]=="ItemList")|.itemListElement|.[]|select(.["@type"]=="ListItem")|.item|select(.["@type"]=="Recipe"))'
+recipes="(.[]|(arrays|.[]),objects|$recipeGraph,$recipeDirect,$recipeItemList)"
 title='(.name+"\n"+(.name|explode|map("=")|join(""))+"\n")'
 description='(.description+"\n")'
 ingredientsHeader='"Ingredients\n-----------\n"'
@@ -10,7 +11,7 @@ instructionsHeader='"Instructions\n------------\n"'
 instructionsString='strings'
 howtostep='strings,(objects|select(has("@type"))|select(.["@type"]=="HowToStep"),(select(.["@type"]=="HowToSection")|.itemListElement|.[])|.text)'
 instructionsArray='(arrays|([.[]|'"$howtostep"'|" * "+.+"\n"]|join("")))'
-instructions="(.recipeInstructions|$instructionsString,$instructionsArray)"
+instructions="([.recipeInstructions|$instructionsString,$instructionsArray]|join(\"\"))"
 br='"\n"'
 
 curl -s "$1" | pup 'script[type="application/ld+json"] text{}'\
