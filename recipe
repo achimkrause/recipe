@@ -1,97 +1,19 @@
-#!/usr/bin/node
-const puppeteer = require('puppeteer');
+#!/bin/bash
+recipeDirect='(select(.["@type"]=="Recipe"))'
+recipeGraph='(select(has("@graph"))|.["@graph"]|map(select(.["@type"]=="Recipe"))|.[])'
+recipes="(.[]|(arrays|.[]),objects|$recipeGraph,$recipeDirect)"
+title='(.name+"\n"+(.name|explode|map("=")|join(""))+"\n")'
+description='(.description+"\n")'
+ingredientsHeader='"Ingredients\n-----------\n"'
+ingredients='(.recipeIngredient|[.[]|" * "+.+"\n"]|join(""))'
+instructionsHeader='"Instructions\n------------\n"'
+instructionsString='strings'
+howtostep='strings,(objects|select(has("@type"))|select(.["@type"]=="HowToStep"),(select(.["@type"]=="HowToSection")|.itemListElement|.[])|.text)'
+instructionsArray='(arrays|([.[]|'"$howtostep"'|" * "+.+"\n"]|join("")))'
+instructions="(.recipeInstructions|$instructionsString,$instructionsArray)"
+br='"\n"'
 
-function sleep(ms){
-  return new Promise(resolve => setTimeout(resolve,ms));
-}
-
-function heading(str){
-  let result = str + "\n" + "=".repeat(str.length) + "\n";
-  return result;
-}
-
-function subheading(str){
-  let result = str + "\n" + "-".repeat(str.length) + "\n";
-  return result;
-}
-
-function getRecipe(json){
-  if(json['@type'] === 'Recipe'){
-    return json;
-  }
-  else if(Array.isArray(json['@graph'])){
-    for(let i=0; i<json['@graph'].length; i++){
-      if(json['@graph'][i]['@type'] === 'Recipe'){
-        return json['@graph'][i];
-      }
-    }
-  }
-}
-
-function prettyPrintRecipe(json){
-  let str = heading(json.name) + "\n";
-  str += json.description + "\n\n";
-  str += subheading("Ingredients");
-  for(let i=0; i<json.recipeIngredient.length; i++){
-    str += " * " + json.recipeIngredient[i] + "\n";
-  }
-  str += "\n";
-  str += subheading("Instructions");
-  if(typeof json.recipeInstructions === 'string'){
-    str += json.recipeInstructions;
-  }
-  else{
-    for(let i=0; i<json.recipeInstructions.length; i++){
-      let instr = json.recipeInstructions[i];
-      if(instr['@type'] === 'HowToSection'){
-        for(let j=0; j<instr.itemListElement.length; j++){
-          if(instr.itemListElement[j]['@type'] === 'HowToStep'){
-            str += " * " + instr.itemListElement[j].text + "\n"
-          }
-        }
-      }
-      else if(instr['@type'] === 'HowToStep'){
-        str += " * " + instr.text + "\n"
-      }
-    }
-  }
-  return str;
-}
-
-async function scrape(url){
-  const browser = await puppeteer.launch({headless:true});
-  try{
-    const page = await browser.newPage();
-    await page.goto(url);
-    //await sleep(1000);
-    const jsonStrings = await page.evaluate(() => Array.from(document.querySelectorAll('script[type="application/ld+json"]')).map(x => x.innerText));
-    const jsons = jsonStrings.map(str => JSON.parse(str));
-    for(let i=0; i<jsons.length; i++){
-      const recipe = getRecipe(jsons[i]);
-      if(recipe !== undefined){
-        console.log(prettyPrintRecipe(recipe));
-        //console.log(recipe);
-      }
-    }
-  }
-  catch (e){
-    console.log(e);
-  }
-  finally{
-    await browser.close();
-  }
-}
-
-
-async function main(){
-  if(process.argv.length <= 2){
-    console.log('argument missing')
-  }
-  else{
-    for(let i=2; i<process.argv.length; i++){
-      await scrape(process.argv[i]);
-    }
-  }
-}
-
-main();
+curl -s "$1" | pup 'script[type="application/ld+json"] text{}'\
+             | jq -rs "$recipes|$title+$br+$description+$br
+                         +$ingredientsHeader+$ingredients+$br
+                         +$instructionsHeader+$instructions"
